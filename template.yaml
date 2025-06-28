@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: TexWeb Service Lambda Function
+
+Parameters:
+  FunctionName:
+    Type: String
+    Description: Name of the Lambda function
+  ImageTag:
+    Type: String
+    Description: Tag for the container image
+    Default: latest
+
+Resources:
+  TexWebServiceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Ref FunctionName
+      ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/texweb-service:${ImageTag}"
+      PackageType: Image
+      Timeout: 600
+      MemorySize: 1024
+      Environment:
+        Variables:
+          AWS_REGION: !Ref AWS::Region
+      Policies:
+        - S3ReadPolicy:
+            BucketName: "*"
+        - S3WritePolicy:
+            BucketName: "*"
+
+Outputs:
+  FunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt TexWebServiceFunction.Arn
+  FunctionName:
+    Description: Lambda function name
+    Value: !Ref TexWebServiceFunction
+  ConsoleUrl:
+    Description: Console URL for the Lambda Function
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/lambda/home?region=${AWS::Region}#/functions/${TexWebServiceFunction}"
+  ECRImageUri:
+    Description: URI of the container image in ECR
+    Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/texweb-service:${ImageTag}"
