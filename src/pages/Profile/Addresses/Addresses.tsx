@@ -7,8 +7,43 @@ import {
   Briefcase,
   Edit, 
   Trash,
-  X
+  X,
+  Navigation,
+  Loader2
 } from 'lucide-react';
+import {
+  IonButton,
+  IonCard,
+  IonCardContent,
+  IonCardHeader,
+  IonCardTitle,
+  IonContent,
+  IonFab,
+  IonFabButton,
+  IonHeader,
+  IonInput,
+  IonItem,
+  IonLabel,
+  IonList,
+  IonModal,
+  IonPage,
+  IonSelect,
+  IonSelectOption,
+  IonTextarea,
+  IonTitle,
+  IonToolbar,
+  IonCheckbox,
+  IonToast,
+  IonAlert,
+  IonGrid,
+  IonRow,
+  IonCol,
+  IonBadge,
+  IonLoading,
+  IonRefresher,
+  IonRefresherContent
+} from '@ionic/react';
+import { Geolocation } from '@capacitor/geolocation';
 
 interface Address {
   id: string;
@@ -27,6 +62,11 @@ interface Address {
 export const Addresses = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [showDeleteAlert, setShowDeleteAlert] = useState(false);
+  const [addressToDelete, setAddressToDelete] = useState<string>('');
   const [formData, setFormData] = useState<Partial<Address>>({
     type: 'home',
     name: '',
@@ -67,7 +107,16 @@ export const Addresses = () => {
   };
 
   const handleDelete = (id: string) => {
-    setAddresses(addresses.filter(address => address.id !== id));
+    setAddressToDelete(id);
+    setShowDeleteAlert(true);
+  };
+
+  const confirmDelete = () => {
+    setAddresses(addresses.filter(address => address.id !== addressToDelete));
+    setShowDeleteAlert(false);
+    setAddressToDelete('');
+    setToastMessage('Address deleted successfully');
+    setShowToast(true);
   };
 
   const handleSetDefault = (id: string) => {
@@ -75,6 +124,8 @@ export const Addresses = () => {
       ...address,
       isDefault: address.id === id
     })));
+    setToastMessage('Default address updated');
+    setShowToast(true);
   };
 
   const handleLocationSelect = (lat: number, lng: number) => {
@@ -107,242 +158,244 @@ export const Addresses = () => {
     return false;
   };
 
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by this browser.');
-      return;
-    }
+  const getCurrentLocation = async () => {
+    setIsLoading(true);
+    
+    try {
+      // Use Capacitor's native geolocation service for better accuracy and permissions handling
+      const position = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 20000,
+      });
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
+      const { latitude, longitude } = position.coords;
+      
+      try {
+        // Use BigDataCloud API - free, no API key required, very accurate for PIN codes
+        const response = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+        );
         
-        try {
-          // Use BigDataCloud API - free, no API key required, very accurate for PIN codes
-          const response = await fetch(
-            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+        let data = null;
+        if (response.ok) {
+          data = await response.json();
+          console.log('BigDataCloud data received:', data);
+          console.log('Available fields:', Object.keys(data || {}));
+        }
+        
+        // If BigDataCloud doesn't provide sufficient data, try OpenStreetMap Nominatim as backup
+        if (!data || (!data.locality && !data.city && !data.postcode && !data.principalSubdivision)) {
+          console.log('Trying OpenStreetMap Nominatim as backup...');
+          const nominatimResponse = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
           );
           
-          let data = null;
-          if (response.ok) {
-            data = await response.json();
-            console.log('BigDataCloud data received:', data);
-            console.log('Available fields:', Object.keys(data || {}));
-          }
-          
-          // If BigDataCloud doesn't provide sufficient data, try OpenStreetMap Nominatim as backup
-          if (!data || (!data.locality && !data.city && !data.postcode && !data.principalSubdivision)) {
-            console.log('Trying OpenStreetMap Nominatim as backup...');
-            const nominatimResponse = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
-            );
+          if (nominatimResponse.ok) {
+            const nominatimData = await nominatimResponse.json();
+            console.log('Nominatim data received:', nominatimData);
             
-            if (nominatimResponse.ok) {
-              const nominatimData = await nominatimResponse.json();
-              console.log('Nominatim data received:', nominatimData);
-              
-              // Transform Nominatim data to match our expected format
-              if (nominatimData.address) {
-                data = {
-                  ...data,
-                  city: nominatimData.address.city || nominatimData.address.town || nominatimData.address.village || nominatimData.address.municipality,
-                  locality: nominatimData.address.suburb || nominatimData.address.neighbourhood || nominatimData.address.hamlet,
-                  postcode: nominatimData.address.postcode,
-                  principalSubdivision: nominatimData.address.state || nominatimData.address.province,
-                  countrySecondarySubdivision: nominatimData.address.state_district || nominatimData.address.county,
-                  // Additional mappings
-                  town: nominatimData.address.town,
-                  village: nominatimData.address.village,
-                  municipality: nominatimData.address.municipality,
-                  district: nominatimData.address.district,
-                  state: nominatimData.address.state,
-                  province: nominatimData.address.province,
-                  region: nominatimData.address.region
-                };
-                console.log('Merged data with Nominatim:', data);
+            // Transform Nominatim data to match our expected format
+            if (nominatimData.address) {
+              data = {
+                ...data,
+                city: nominatimData.address.city || nominatimData.address.town || nominatimData.address.village || nominatimData.address.municipality,
+                locality: nominatimData.address.suburb || nominatimData.address.neighbourhood || nominatimData.address.hamlet,
+                postcode: nominatimData.address.postcode,
+                principalSubdivision: nominatimData.address.state || nominatimData.address.province,
+                countrySecondarySubdivision: nominatimData.address.state_district || nominatimData.address.county,
+                // Additional mappings
+                town: nominatimData.address.town,
+                village: nominatimData.address.village,
+                municipality: nominatimData.address.municipality,
+                district: nominatimData.address.district,
+                state: nominatimData.address.state,
+                province: nominatimData.address.province,
+                region: nominatimData.address.region
+              };
+              console.log('Merged data with Nominatim:', data);
+            }
+          }
+        }
+        
+        // Make condition more flexible - check if we have any useful data
+        if (data && (data.locality || data.city || data.postcode || data.principalSubdivision)) {
+          // Extract city with multiple fallback options
+          let city = '';
+          const cityFields = [
+            data.city,
+            data.locality,
+            data.localityInfo?.administrative?.[2]?.name,
+            data.localityInfo?.administrative?.[1]?.name,
+            data.principalSubdivisionCode,
+            data.countrySubdivision,
+            // Additional fallback fields
+            data.town,
+            data.village,
+            data.municipality,
+            data.district
+          ];
+          
+          // Get the first valid city (non-numeric, meaningful length, not a PIN code)
+          city = cityFields.find(field => 
+            field && 
+            typeof field === 'string' && 
+            field.length > 2 && 
+            field.length < 50 && // Reasonable max length for city names
+            !/^\d+$/.test(field) && // Not purely numeric
+            !/^\d{5,6}$/.test(field) // Not a PIN code
+          ) || '';
+          
+          // Extract PIN code with comprehensive fallback options - check all possible fields
+          let pincode = '';
+          const pincodeFields = [
+            data.postcode,
+            data.postalCode,
+            data.zipcode,  
+            data.zip,
+            data.postal_code,
+            data.postalCodeNumber,
+            data.postCode,
+            // Additional fields that might contain postal codes
+            data.zipCode,
+            data.postalcode,
+            data.pin,
+            data.pincode
+          ];
+          
+          // Also check administrative levels for postal codes (sometimes stored there)
+          if (data.localityInfo?.administrative) {
+            data.localityInfo.administrative.forEach((admin: any) => {
+              if (admin.name && /^\d{5,6}$/.test(admin.name)) {
+                pincodeFields.push(admin.name);
               }
-            }
+            });
           }
           
-          // Make condition more flexible - check if we have any useful data
-          if (data && (data.locality || data.city || data.postcode || data.principalSubdivision)) {
-            // Extract city with multiple fallback options
-            let city = '';
-            const cityFields = [
-              data.city,
-              data.locality,
-              data.localityInfo?.administrative?.[2]?.name,
-              data.localityInfo?.administrative?.[1]?.name,
-              data.principalSubdivisionCode,
-              data.countrySubdivision,
-              // Additional fallback fields
-              data.town,
-              data.village,
-              data.municipality,
-              data.district
-            ];
+          // Get the first valid pincode (numeric and 5-6 digits)
+          pincode = pincodeFields.find(field => 
+            field && 
+            field.toString().length >= 5 && 
+            /^\d{5,6}$/.test(field.toString())
+          ) || '';
+          
+          // Extract state with multiple fallback options first (needed for PIN code fallback)
+          let state = '';
+          const stateFields = [
+            data.principalSubdivision,
+            data.countrySecondarySubdivision,
+            data.localityInfo?.administrative?.[0]?.name,
+            data.principalSubdivisionCode,
+            // Additional fallback fields
+            data.state,
+            data.province,
+            data.region,
+            data.adminLevel1
+          ];
+          
+          // Get the first valid state (non-numeric, meaningful length, not a PIN code)
+          state = stateFields.find(field => 
+            field && 
+            typeof field === 'string' && 
+            field.length > 2 && 
+            field.length < 50 && // Reasonable max length for state names
+            !/^\d+$/.test(field) && // Not purely numeric
+            !/^\d{5,6}$/.test(field) // Not a PIN code
+          ) || '';
+          
+          // If still no pincode found, try additional fallback strategies
+          if (!pincode && city && state) {
+            console.log('PIN code not found in geocoding data, trying additional strategies...');
             
-            // Get the first valid city (non-numeric, meaningful length, not a PIN code)
-            city = cityFields.find(field => 
-              field && 
-              typeof field === 'string' && 
-              field.length > 2 && 
-              field.length < 50 && // Reasonable max length for city names
-              !/^\d+$/.test(field) && // Not purely numeric
-              !/^\d{5,6}$/.test(field) // Not a PIN code
-            ) || '';
-            
-            // Extract PIN code with comprehensive fallback options - check all possible fields
-            let pincode = '';
-            const pincodeFields = [
-              data.postcode,
-              data.postalCode,
-              data.zipcode,  
-              data.zip,
-              data.postal_code,
-              data.postalCodeNumber,
-              data.postCode,
-              // Additional fields that might contain postal codes
-              data.zipCode,
-              data.postalcode,
-              data.pin,
-              data.pincode
-            ];
-            
-            // Also check administrative levels for postal codes (sometimes stored there)
-            if (data.localityInfo?.administrative) {
-              data.localityInfo.administrative.forEach((admin: any) => {
-                if (admin.name && /^\d{5,6}$/.test(admin.name)) {
-                  pincodeFields.push(admin.name);
+            // Try a more specific Nominatim query with higher zoom level for PIN code
+            try {
+              const detailedNominatimResponse = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=16&addressdetails=1&extratags=1`
+              );
+              
+              if (detailedNominatimResponse.ok) {
+                const detailedData = await detailedNominatimResponse.json();
+                console.log('Detailed Nominatim data for PIN code:', detailedData);
+                
+                if (detailedData.address && detailedData.address.postcode) {
+                  pincode = detailedData.address.postcode;
+                  console.log('Found PIN code from detailed Nominatim:', pincode);
                 }
-              });
+              }
+            } catch (error) {
+              console.error('Detailed Nominatim fallback failed:', error);
             }
             
-            // Get the first valid pincode (numeric and 5-6 digits)
-            pincode = pincodeFields.find(field => 
-              field && 
-              field.toString().length >= 5 && 
-              /^\d{5,6}$/.test(field.toString())
-            ) || '';
-            
-            // Extract state with multiple fallback options first (needed for PIN code fallback)
-            let state = '';
-            const stateFields = [
-              data.principalSubdivision,
-              data.countrySecondarySubdivision,
-              data.localityInfo?.administrative?.[0]?.name,
-              data.principalSubdivisionCode,
-              // Additional fallback fields
-              data.state,
-              data.province,
-              data.region,
-              data.adminLevel1
-            ];
-            
-            // Get the first valid state (non-numeric, meaningful length, not a PIN code)
-            state = stateFields.find(field => 
-              field && 
-              typeof field === 'string' && 
-              field.length > 2 && 
-              field.length < 50 && // Reasonable max length for state names
-              !/^\d+$/.test(field) && // Not purely numeric
-              !/^\d{5,6}$/.test(field) // Not a PIN code
-            ) || '';
-            
-            // If still no pincode found, try additional fallback strategies
-            if (!pincode && city && state) {
-              console.log('PIN code not found in geocoding data, trying additional strategies...');
-              
-              // Try a more specific Nominatim query with higher zoom level for PIN code
+            // If still no PIN code, try a geocoding search by city name
+            if (!pincode) {
               try {
-                const detailedNominatimResponse = await fetch(
-                  `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=16&addressdetails=1&extratags=1`
+                const searchResponse = await fetch(
+                  `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city + ', ' + state + ', India')}&addressdetails=1&limit=1`
                 );
                 
-                if (detailedNominatimResponse.ok) {
-                  const detailedData = await detailedNominatimResponse.json();
-                  console.log('Detailed Nominatim data for PIN code:', detailedData);
+                if (searchResponse.ok) {
+                  const searchData = await searchResponse.json();
+                  console.log('Nominatim search data for PIN code:', searchData);
                   
-                  if (detailedData.address && detailedData.address.postcode) {
-                    pincode = detailedData.address.postcode;
-                    console.log('Found PIN code from detailed Nominatim:', pincode);
+                  if (searchData.length > 0 && searchData[0].address && searchData[0].address.postcode) {
+                    pincode = searchData[0].address.postcode;
+                    console.log('Found PIN code from Nominatim search:', pincode);
                   }
                 }
               } catch (error) {
-                console.error('Detailed Nominatim fallback failed:', error);
-              }
-              
-              // If still no PIN code, try a geocoding search by city name
-              if (!pincode) {
-                try {
-                  const searchResponse = await fetch(
-                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city + ', ' + state + ', India')}&addressdetails=1&limit=1`
-                  );
-                  
-                  if (searchResponse.ok) {
-                    const searchData = await searchResponse.json();
-                    console.log('Nominatim search data for PIN code:', searchData);
-                    
-                    if (searchData.length > 0 && searchData[0].address && searchData[0].address.postcode) {
-                      pincode = searchData[0].address.postcode;
-                      console.log('Found PIN code from Nominatim search:', pincode);
-                    }
-                  }
-                } catch (error) {
-                  console.error('Nominatim search fallback failed:', error);
-                }
+                console.error('Nominatim search fallback failed:', error);
               }
             }
-            
-           // Update form data with location and address details (excluding street address auto-fill)
-            setFormData(prev => ({
-              ...prev,
-              latitude: latitude,
-              longitude: longitude,
-              city: city || prev.city || '',
-              state: state || prev.state || '',
-              pincode: pincode || prev.pincode || ''
-            }));
-            
-            console.log('Updated address data:', {
-              coordinates: { latitude, longitude },
-              city,
-              state,
-              pincode
-            });
-            
-            
-            
-          } else {
-            handleLocationSelect(latitude, longitude);
           }
-        } catch (error) {
-          console.error('Geocoding error:', error);
+          
+         // Update form data with location and address details (excluding street address auto-fill)
+          setFormData(prev => ({
+            ...prev,
+            latitude: latitude,
+            longitude: longitude,
+            city: city || prev.city || '',
+            state: state || prev.state || '',
+            pincode: pincode || prev.pincode || ''
+          }));
+          
+          setToastMessage('Location detected successfully!');
+          setShowToast(true);
+          
+          console.log('Updated address data:', {
+            coordinates: { latitude, longitude },
+            city,
+            state,
+            pincode
+          });
+          
+        } else {
           handleLocationSelect(latitude, longitude);
+          setToastMessage('Location detected but address details not found. Please fill manually.');
+          setShowToast(true);
         }
-        
-      },
-      (error) => {
-        let errorMessage = 'Unable to retrieve your location.';
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = 'Location access denied by user. Please enable location permissions in your browser settings.';
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = 'Location information is unavailable.';
-            break;
-          case error.TIMEOUT:
-            errorMessage = 'Location request timed out.';
-            break;
-        }
-        alert(errorMessage);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 20000, // Increased timeout for better accuracy
-        maximumAge: 60000, // 1 minute cache
+      } catch (error) {
+        console.error('Geocoding error:', error);
+        handleLocationSelect(latitude, longitude);
+        setToastMessage('Location detected but address lookup failed. Please fill manually.');
+        setShowToast(true);
       }
-    );
+      
+    } catch (error: any) {
+      console.error('Geolocation error:', error);
+      let errorMessage = 'Unable to retrieve your location.';
+      
+      if (error.message?.includes('permission')) {
+        errorMessage = 'Location access denied. Please enable location permissions in your device settings.';
+      } else if (error.message?.includes('unavailable')) {
+        errorMessage = 'Location service is unavailable.';
+      } else if (error.message?.includes('timeout')) {
+        errorMessage = 'Location request timed out. Please try again.';
+      }
+      
+      setToastMessage(errorMessage);
+      setShowToast(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Automatically get location when modal opens
@@ -371,334 +424,380 @@ export const Addresses = () => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     
-    // Validate phone number
-    if (!validatePhoneNumber(formData.phone || '')) {
-      alert('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
-      return;
-    }
-    
-    const newAddress = {
-      ...formData,
-      id: editingAddress ? editingAddress.id : Math.random().toString(36).substr(2, 9),
-    } as Address;
-
-    if (editingAddress) {
-      // Editing existing address
-      setAddresses(addresses.map(addr => {
-        if (addr.id === editingAddress.id) {
-          return {
-            ...newAddress,
-            isDefault: editingAddress.isDefault || newAddress.isDefault
-          };
-        }
-        // If the new address is set as default, unset others
-        return newAddress.isDefault ? { ...addr, isDefault: false } : addr;
-      }));
-    } else {
-      // Adding new address
-      if (newAddress.isDefault) {
-        setAddresses(addresses.map(addr => ({ ...addr, isDefault: false })).concat(newAddress));
-      } else {
-        // If this is the first address, make it default
-        if (addresses.length === 0) {
-          newAddress.isDefault = true;
-        }
-        setAddresses([...addresses, newAddress]);
+    try {
+      // Validate phone number
+      if (!validatePhoneNumber(formData.phone || '')) {
+        setToastMessage('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
+        setShowToast(true);
+        setIsLoading(false);
+        return;
       }
-    }
+      
+      const newAddress = {
+        ...formData,
+        id: editingAddress ? editingAddress.id : Math.random().toString(36).substr(2, 9),
+      } as Address;
 
-    cleanupForm();
+      if (editingAddress) {
+        // Editing existing address
+        setAddresses(addresses.map(addr => {
+          if (addr.id === editingAddress.id) {
+            return {
+              ...newAddress,
+              isDefault: editingAddress.isDefault || newAddress.isDefault
+            };
+          }
+          // If the new address is set as default, unset others
+          return newAddress.isDefault ? { ...addr, isDefault: false } : addr;
+        }));
+        setToastMessage('Address updated successfully');
+      } else {
+        // Adding new address
+        if (newAddress.isDefault) {
+          setAddresses(addresses.map(addr => ({ ...addr, isDefault: false })).concat(newAddress));
+        } else {
+          // If this is the first address, make it default
+          if (addresses.length === 0) {
+            newAddress.isDefault = true;
+          }
+          setAddresses([...addresses, newAddress]);
+        }
+        setToastMessage('Address added successfully');
+      }
+
+      setShowToast(true);
+      cleanupForm();
+    } catch (error) {
+      setToastMessage('Failed to save address. Please try again.');
+      setShowToast(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-4rem)] bg-white">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-white border-b border-gray-200">
-        <div className="px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <MapPin className="h-5 w-5 sm:h-6 sm:w-6 text-rose-600" />
-              <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Saved Addresses</h1>
-            </div>
-            <button
-              onClick={openAddModal}
-              className="inline-flex items-center px-3 sm:px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-rose-600 hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500"
-            >
-              <Plus className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Add New</span>
-              <span className="sm:hidden">Add</span>
-            </button>
-          </div>
-        </div>
-      </header>
+    <IonPage>
+      <IonHeader>
+        <IonToolbar>
+          <IonTitle>Saved Addresses</IonTitle>
+        </IonToolbar>
+      </IonHeader>
+      
+      <IonContent>
+        <IonRefresher slot="fixed" onIonRefresh={(e) => {
+          // Refresh addresses if needed
+          setTimeout(() => e.detail.complete(), 2000);
+        }}>
+          <IonRefresherContent></IonRefresherContent>
+        </IonRefresher>
 
-      {/* Main Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="px-4 sm:px-6 py-4 sm:py-6">
-          {addresses.length === 0 ? (
-            <div className="text-center py-12">
-              <MapPin className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900">No addresses saved</h3>
-              <p className="mt-1 text-sm sm:text-base text-gray-500">
-                Add a new address to save it for future purchases
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-3 sm:gap-4 md:gap-6 md:grid-cols-2">
+        {addresses.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full py-20">
+            <MapPin className="h-16 w-16 text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No addresses saved</h3>
+            <p className="text-center text-gray-500 mb-6 px-4">
+              Add a new address to save it for future purchases
+            </p>
+            <IonButton 
+              fill="solid" 
+              color="primary" 
+              onClick={openAddModal}
+              className="px-6"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Add Your First Address
+            </IonButton>
+          </div>
+        ) : (
+          <IonGrid>
+            <IonRow>
               {addresses.map((address) => (
-                <div
-                  key={address.id}
-                  className="relative bg-white sm:bg-gray-50 rounded-lg p-3 sm:p-4 border border-gray-200 hover:border-gray-300 transition-colors shadow-sm hover:shadow"
-                >
-                  {address.isDefault && (
-                    <div className="absolute right-0 top-0 p-3">
-                      <span className="px-2 py-1 bg-rose-100 text-rose-700 text-xs font-medium rounded-full">
-                        Default
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex items-start space-x-3">
-                    <div className="mt-1 text-gray-500 flex-shrink-0">
-                      {getAddressIcon(address.type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-medium text-gray-900 truncate pr-16">{address.name}</h3>
-                      <p className="mt-1 text-sm text-gray-600 break-words">{address.address}</p>
-                      <p className="text-sm text-gray-600">{address.city}, {address.state} {address.pincode}</p>
-                      <p className="mt-2 text-sm text-gray-600">Phone: {address.phone}</p>
-                      {address.latitude && address.longitude && (
-                        <div className="mt-2">
-                          <p className="text-xs text-gray-500">
-                            📍 Latitude: {address.latitude.toFixed(6)}, Longitude: {address.longitude.toFixed(6)}
-                          </p>
+                <IonCol key={address.id} size="12" sizeMd="6">
+                  <IonCard>
+                    <IonCardHeader>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <div className="text-gray-600">
+                            {getAddressIcon(address.type)}
+                          </div>
+                          <IonCardTitle className="text-base">{address.name}</IonCardTitle>
                         </div>
-                      )}
+                        {address.isDefault && (
+                          <IonBadge color="primary">Default</IonBadge>
+                        )}
+                      </div>
+                    </IonCardHeader>
+                    
+                    <IonCardContent>
+                      <div className="space-y-2">
+                        <p className="text-sm text-gray-600 break-words">{address.address}</p>
+                        <p className="text-sm text-gray-600">{address.city}, {address.state} {address.pincode}</p>
+                        <p className="text-sm text-gray-600">📞 {address.phone}</p>
+                        {address.latitude && address.longitude && (
+                          <div className="flex items-center space-x-1 text-xs text-gray-500">
+                            <Navigation className="h-3 w-3" />
+                            <span>
+                              {address.latitude.toFixed(4)}, {address.longitude.toFixed(4)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                       
-                      <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-3 sm:gap-4">
-                        <button
+                      <div className="flex flex-wrap gap-2 mt-4">
+                        <IonButton 
+                          size="small" 
+                          fill="outline" 
                           onClick={() => {
                             setEditingAddress(address);
                             setFormData(address);
                             setIsAddModalOpen(true);
                           }}
-                          className="inline-flex items-center px-2 py-1 text-sm text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-100"
                         >
                           <Edit className="h-4 w-4 mr-1" />
                           Edit
-                        </button>
+                        </IonButton>
+                        
                         {!address.isDefault && (
                           <>
-                            <button
+                            <IonButton 
+                              size="small" 
+                              fill="outline" 
+                              color="danger"
                               onClick={() => handleDelete(address.id)}
-                              className="inline-flex items-center px-2 py-1 text-sm text-red-600 hover:text-red-700 rounded-md hover:bg-red-50"
                             >
                               <Trash className="h-4 w-4 mr-1" />
                               Delete
-                            </button>
-                            <button
+                            </IonButton>
+                            
+                            <IonButton 
+                              size="small" 
+                              fill="clear" 
+                              color="primary"
                               onClick={() => handleSetDefault(address.id)}
-                              className="inline-flex items-center px-2 py-1 text-sm text-rose-600 hover:text-rose-700 rounded-md hover:bg-rose-50"
                             >
                               <MapPin className="h-4 w-4 mr-1" />
-                              Set as Default
-                            </button>
+                              Set Default
+                            </IonButton>
                           </>
                         )}
                       </div>
-                    </div>
-                  </div>
-                </div>
+                    </IonCardContent>
+                  </IonCard>
+                </IonCol>
               ))}
-            </div>
-          )}
-        </div>
-      </div>
+            </IonRow>
+          </IonGrid>
+        )}
 
-      {/* Add/Edit Address Modal */}
-      {(isAddModalOpen || editingAddress) && (
-        <div className="fixed inset-0 z-50 overflow-hidden">
-          <div className="flex min-h-screen items-center justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-            {/* Background overlay */}
-            <div 
-              className="fixed inset-0 bg-black bg-opacity-40 transition-opacity" 
-              aria-hidden="true"
-              onClick={cleanupForm}
-            />
-            
-            {/* Center modal on desktop */}
-            <span className="hidden sm:inline-block sm:h-screen sm:align-middle" aria-hidden="true">&#8203;</span>
+        {/* Floating Action Button */}
+        <IonFab vertical="bottom" horizontal="end" slot="fixed">
+          <IonFabButton onClick={openAddModal} color="primary">
+            <Plus className="h-6 w-6" />
+          </IonFabButton>
+        </IonFab>
 
-            {/* Modal panel */}
-            <div className="relative inline-block w-full transform overflow-hidden rounded-t-xl bg-white text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:rounded-xl sm:align-middle">
-              <div className="bg-white">
-                <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                  <div className="flex items-center justify-between mb-5">
-                    <h3 className="text-xl font-semibold text-gray-900">
-                      {editingAddress ? 'Edit Address' : 'Add New Address'}
-                    </h3>
-                    <button
-                      onClick={cleanupForm}
-                      className="rounded-md text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                    >
-                      <span className="sr-only">Close</span>
-                      <X className="h-6 w-6" />
-                    </button>
-                  </div>
+        {/* Add/Edit Address Modal */}
+        <IonModal isOpen={isAddModalOpen || !!editingAddress} onDidDismiss={cleanupForm}>
+          <IonHeader>
+            <IonToolbar>
+              <IonTitle>{editingAddress ? 'Edit Address' : 'Add New Address'}</IonTitle>
+              <IonButton 
+                slot="end" 
+                fill="clear" 
+                onClick={cleanupForm}
+              >
+                <X className="h-6 w-6" />
+              </IonButton>
+            </IonToolbar>
+          </IonHeader>
+          
+          <IonContent>
+            <form onSubmit={handleSubmit} className="p-4">
+              <IonList>
+                <IonItem>
+                  <IonLabel position="stacked">Full Name *</IonLabel>
+                  <IonInput
+                    value={formData.name || ''}
+                    onIonInput={(e) => setFormData({ ...formData, name: e.detail.value! })}
+                    placeholder="Enter your full name"
+                    required
+                  />
+                </IonItem>
 
-                  <form onSubmit={handleSubmit} className="mt-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Full Name
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.name || ''}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-rose-500 focus:border-rose-500 text-base"
-                        placeholder="Enter your full name"
-                        required
-                      />
-                    </div>
+                <IonItem>
+                  <IonLabel position="stacked">Phone Number *</IonLabel>
+                  <IonInput
+                    type="tel"
+                    value={formData.phone || ''}
+                    onIonInput={(e) => {
+                      const cleanPhone = e.detail.value!.replace(/\D/g, '').slice(0, 13);
+                      setFormData({ ...formData, phone: cleanPhone });
+                    }}
+                    placeholder="Enter 10-digit mobile number"
+                    required
+                  />
+                </IonItem>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Phone Number
-                      </label>
-                      <input
-                        type="tel"
-                        value={formData.phone || ''}
-                        onChange={(e) => {
-                          // Remove non-digit characters and limit to 13 digits
-                          const cleanPhone = e.target.value.replace(/\D/g, '').slice(0, 13);
-                          setFormData({ ...formData, phone: cleanPhone });
-                        }}
-                        className="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-rose-500 focus:border-rose-500 text-base"
-                        placeholder="Enter 10-digit mobile number"
-                        pattern="[0-9]{10,13}"
-                        title="Please enter a valid 10-digit mobile number"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Address Type
-                      </label>
-                      <select
-                        value={formData.type || 'home'}
-                        onChange={(e) => setFormData({ ...formData, type: e.target.value as Address['type'] })}
-                        className="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-rose-500 focus:border-rose-500 text-base"
-                        required
-                      >
-                        <option value="home">Home</option>
-                        <option value="office">Office</option>
-                        <option value="other">Other</option>
-                      </select>
-                    </div>
+                <IonItem>
+                  <IonLabel position="stacked">Address Type *</IonLabel>
+                  <IonSelect
+                    value={formData.type || 'home'}
+                    onIonChange={(e) => setFormData({ ...formData, type: e.detail.value })}
+                  >
+                    <IonSelectOption value="home">Home</IonSelectOption>
+                    <IonSelectOption value="office">Office</IonSelectOption>
+                    <IonSelectOption value="other">Other</IonSelectOption>
+                  </IonSelect>
+                </IonItem>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Street Address
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.address || ''}
-                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                        className="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-rose-500 focus:border-rose-500 text-base"
-                        placeholder="Enter your complete street address"
-                        required
-                      />
-                    </div>
+                <IonItem>
+                  <IonLabel position="stacked">Street Address *</IonLabel>
+                  <IonTextarea
+                    value={formData.address || ''}
+                    onIonInput={(e) => setFormData({ ...formData, address: e.detail.value! })}
+                    placeholder="Enter your complete street address"
+                    rows={3}
+                    required
+                  />
+                </IonItem>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          City
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.city || ''}
-                          onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                          className="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-rose-500 focus:border-rose-500 text-base"
-                          placeholder="Enter city"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          State
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.state || ''}
-                          onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                          className="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-rose-500 focus:border-rose-500 text-base"
-                          placeholder="Enter state"
-                          required
-                        />
-                      </div>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
+                  <IonItem>
+                    <IonLabel position="stacked">City *</IonLabel>
+                    <IonInput
+                      value={formData.city || ''}
+                      onIonInput={(e) => setFormData({ ...formData, city: e.detail.value! })}
+                      placeholder="Enter city"
+                      required
+                    />
+                  </IonItem>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        PIN Code
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.pincode || ''}
-                        onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
-                        className="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-rose-500 focus:border-rose-500 text-base"
-                        placeholder="Enter PIN code"
-                        pattern="[0-9]{6}"
-                        title="Please enter a 6-digit PIN code"
-                        required
-                      />
-                      <p className="mt-1 text-xs text-gray-500">
-                        Please enter a 6-digit PIN code
-                      </p>
-                    </div>
-
-                    {!editingAddress?.isDefault && (
-                      <div className="flex items-center pt-2">
-                        <input
-                          type="checkbox"
-                          id="isDefault"
-                          checked={formData.isDefault || false}
-                          onChange={(e) => setFormData({ ...formData, isDefault: e.target.checked })}
-                          className="h-5 w-5 text-rose-600 focus:ring-rose-500 border-gray-300 rounded"
-                        />
-                        <label htmlFor="isDefault" className="ml-2 block text-base text-gray-900">
-                          Set as default address
-                        </label>
-                      </div>
-                    )}
-
-                    <div className="mt-6 sm:mt-8 border-t border-gray-200 pt-4">
-                      <div className="flex flex-col-reverse sm:flex-row sm:space-x-3">
-                        <button
-                          type="button"
-                          onClick={cleanupForm}
-                          className="mt-3 sm:mt-0 w-full sm:w-1/2 inline-flex justify-center px-4 py-2.5 border border-gray-300 shadow-sm text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          className="w-full sm:w-1/2 inline-flex justify-center px-4 py-2.5 border border-transparent text-base font-medium rounded-lg text-white bg-rose-600 hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500"
-                        >
-                          {editingAddress ? 'Save Changes' : 'Add Address'}
-                        </button>
-                      </div>
-                    </div>
-                  </form>
+                  <IonItem>
+                    <IonLabel position="stacked">State *</IonLabel>
+                    <IonInput
+                      value={formData.state || ''}
+                      onIonInput={(e) => setFormData({ ...formData, state: e.detail.value! })}
+                      placeholder="Enter state"
+                      required
+                    />
+                  </IonItem>
                 </div>
+
+                <IonItem>
+                  <IonLabel position="stacked">PIN Code *</IonLabel>
+                  <IonInput
+                    type="number"
+                    value={formData.pincode || ''}
+                    onIonInput={(e) => setFormData({ ...formData, pincode: e.detail.value! })}
+                    placeholder="Enter 6-digit PIN code"
+                    maxlength={6}
+                    required
+                  />
+                </IonItem>
+
+                {/* Location Services */}
+                <IonItem>
+                  <div className="w-full py-4">
+                    <IonButton 
+                      expand="block" 
+                      fill="outline" 
+                      onClick={getCurrentLocation}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Getting Location...
+                        </>
+                      ) : (
+                        <>
+                          <Navigation className="h-4 w-4 mr-2" />
+                          Use Current Location
+                        </>
+                      )}
+                    </IonButton>
+                    <p className="text-xs text-gray-500 mt-2 text-center">
+                      This will auto-fill city, state, and PIN code
+                    </p>
+                  </div>
+                </IonItem>
+
+                {!editingAddress?.isDefault && (
+                  <IonItem>
+                    <IonCheckbox
+                      checked={formData.isDefault || false}
+                      onIonChange={(e) => setFormData({ ...formData, isDefault: e.detail.checked })}
+                    />
+                    <IonLabel className="ml-3">Set as default address</IonLabel>
+                  </IonItem>
+                )}
+              </IonList>
+
+              <div className="flex flex-col space-y-3 mt-6 px-4 pb-4">
+                <IonButton 
+                  type="submit" 
+                  expand="block"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    editingAddress ? 'Save Changes' : 'Add Address'
+                  )}
+                </IonButton>
+                
+                <IonButton 
+                  expand="block" 
+                  fill="outline" 
+                  onClick={cleanupForm}
+                  disabled={isLoading}
+                >
+                  Cancel
+                </IonButton>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+            </form>
+          </IonContent>
+        </IonModal>
+
+        {/* Toast for notifications */}
+        <IonToast
+          isOpen={showToast}
+          onDidDismiss={() => setShowToast(false)}
+          message={toastMessage}
+          duration={3000}
+          position="bottom"
+        />
+
+        {/* Delete confirmation alert */}
+        <IonAlert
+          isOpen={showDeleteAlert}
+          onDidDismiss={() => setShowDeleteAlert(false)}
+          header="Delete Address"
+          message="Are you sure you want to delete this address? This action cannot be undone."
+          buttons={[
+            {
+              text: 'Cancel',
+              role: 'cancel',
+              handler: () => setShowDeleteAlert(false)
+            },
+            {
+              text: 'Delete',
+              role: 'destructive',
+              handler: confirmDelete
+            }
+          ]}
+        />
+
+        {/* Loading overlay */}
+        <IonLoading isOpen={isLoading && !showToast} message="Please wait..." />
+      </IonContent>
+    </IonPage>
   );
 };
