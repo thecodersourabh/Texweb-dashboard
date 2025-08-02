@@ -7,8 +7,7 @@ import {
   Briefcase,
   Edit, 
   Trash,
-  X,
-  Navigation
+  X
 } from 'lucide-react';
 
 interface Address {
@@ -86,7 +85,27 @@ export const Addresses = () => {
     }));
   };
 
-  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const validatePhoneNumber = (phone: string) => {
+    // Remove all non-digit characters for validation
+    const cleanPhone = phone.replace(/\D/g, '');
+    
+    // Check for Indian mobile number patterns
+    // Valid patterns: 10 digits starting with 6-9, or 11 digits starting with 0, or 12-13 digits starting with +91
+    if (cleanPhone.length === 10 && /^[6-9]/.test(cleanPhone)) {
+      return true; // Standard 10-digit mobile
+    }
+    if (cleanPhone.length === 11 && /^0[6-9]/.test(cleanPhone)) {
+      return true; // 11-digit with leading 0
+    }
+    if (cleanPhone.length === 12 && cleanPhone.startsWith('91') && /^91[6-9]/.test(cleanPhone)) {
+      return true; // 12-digit with country code 91
+    }
+    if (cleanPhone.length === 13 && cleanPhone.startsWith('091')) {
+      return true; // 13-digit with 091
+    }
+    
+    return false;
+  };
 
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -94,7 +113,6 @@ export const Addresses = () => {
       return;
     }
 
-    setIsLoadingLocation(true);
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
@@ -276,14 +294,11 @@ export const Addresses = () => {
               }
             }
             
-            // Add street address extraction (use locality or city as base)
-            const streetAddress = data.locality || data.city || '';
-           // Update form data with location and address details
+           // Update form data with location and address details (excluding street address auto-fill)
             setFormData(prev => ({
               ...prev,
               latitude: latitude,
               longitude: longitude,
-              address: streetAddress || prev.address || '',
               city: city || prev.city || '',
               state: state || prev.state || '',
               pincode: pincode || prev.pincode || ''
@@ -291,7 +306,6 @@ export const Addresses = () => {
             
             console.log('Updated address data:', {
               coordinates: { latitude, longitude },
-              address: streetAddress,
               city,
               state,
               pincode
@@ -307,7 +321,6 @@ export const Addresses = () => {
           handleLocationSelect(latitude, longitude);
         }
         
-        setIsLoadingLocation(false);
       },
       (error) => {
         let errorMessage = 'Unable to retrieve your location.';
@@ -323,7 +336,6 @@ export const Addresses = () => {
             break;
         }
         alert(errorMessage);
-        setIsLoadingLocation(false);
       },
       {
         enableHighAccuracy: true,
@@ -362,8 +374,9 @@ export const Addresses = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.latitude || !formData.longitude) {
-      alert('Please capture your location before submitting the address.');
+    // Validate phone number
+    if (!validatePhoneNumber(formData.phone || '')) {
+      alert('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
       return;
     }
     
@@ -557,13 +570,18 @@ export const Addresses = () => {
                       <input
                         type="tel"
                         value={formData.phone || ''}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        onChange={(e) => {
+                          // Remove non-digit characters and limit to 13 digits
+                          const cleanPhone = e.target.value.replace(/\D/g, '').slice(0, 13);
+                          setFormData({ ...formData, phone: cleanPhone });
+                        }}
                         className="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-rose-500 focus:border-rose-500 text-base"
-                        placeholder="Enter phone number"
+                        placeholder="Enter 10-digit mobile number"
+                        pattern="[0-9]{10,13}"
+                        title="Please enter a valid 10-digit mobile number"
                         required
                       />
                     </div>
-
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
                         Address Type
@@ -583,7 +601,6 @@ export const Addresses = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
                         Street Address
-                        <span className="text-xs text-gray-500 ml-1">(Auto-filled)</span>
                       </label>
                       <input
                         type="text"
@@ -593,16 +610,12 @@ export const Addresses = () => {
                         placeholder="Enter your complete street address"
                         required
                       />
-                      <p className="mt-1 text-xs text-gray-500">
-                        Please verify and add house/building number if needed
-                      </p>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700">
                           City
-                          <span className="text-xs text-gray-500 ml-1">(Auto-filled)</span>
                         </label>
                         <input
                           type="text"
@@ -616,7 +629,6 @@ export const Addresses = () => {
                       <div>
                         <label className="block text-sm font-medium text-gray-700">
                           State
-                          <span className="text-xs text-gray-500 ml-1">(Auto-filled)</span>
                         </label>
                         <input
                           type="text"
@@ -632,61 +644,20 @@ export const Addresses = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
                         PIN Code
-                        <span className="text-xs text-gray-500 ml-1">(Auto-filled, please verify)</span>
                       </label>
                       <input
                         type="text"
                         value={formData.pincode || ''}
                         onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
                         className="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-rose-500 focus:border-rose-500 text-base"
-                        placeholder="Enter or verify PIN code"
+                        placeholder="Enter PIN code"
                         pattern="[0-9]{6}"
                         title="Please enter a 6-digit PIN code"
                         required
                       />
                       <p className="mt-1 text-xs text-gray-500">
-                        Please double-check your PIN code for accuracy
+                        Please enter a 6-digit PIN code
                       </p>
-                    </div>
-
-                    <div className="border-t border-gray-100 pt-4 mt-4">
-                      <div className="mb-3">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Location *
-                        </label>
-                        
-                        {isLoadingLocation ? (
-                          <div className="p-3 bg-blue-50 border border-blue-200 rounded">
-                            <div className="flex items-center justify-center">
-                              <Navigation className="h-4 w-4 mr-2 text-blue-600" />
-                              <p className="text-sm text-blue-700">Getting your location...</p>
-                            </div>
-                          </div>
-                        ) : formData.latitude && formData.longitude ? (
-                              <button
-                                type="button"
-                                onClick={getCurrentLocation}
-                                className="mt-2 inline-flex items-center px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
-                              >
-                                <Navigation className="h-3 w-3 mr-1" />
-                                Refresh Location
-                              </button>
-                        ) : (
-                          <div className="p-3 bg-amber-50 border border-amber-200 rounded">
-                            <div className="text-center">
-                              <p className="text-sm text-amber-700">Please allow location access to continue</p>
-                              <button
-                                type="button"
-                                onClick={getCurrentLocation}
-                                className="mt-2 inline-flex items-center px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-                              >
-                                <Navigation className="h-4 w-4 mr-1" />
-                                Try Again
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
                     </div>
 
                     {!editingAddress?.isDefault && (
@@ -715,8 +686,7 @@ export const Addresses = () => {
                         </button>
                         <button
                           type="submit"
-                          disabled={!formData.latitude || !formData.longitude}
-                          className="w-full sm:w-1/2 inline-flex justify-center px-4 py-2.5 border border-transparent text-base font-medium rounded-lg text-white bg-rose-600 hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-rose-600"
+                          className="w-full sm:w-1/2 inline-flex justify-center px-4 py-2.5 border border-transparent text-base font-medium rounded-lg text-white bg-rose-600 hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500"
                         >
                           {editingAddress ? 'Save Changes' : 'Add Address'}
                         </button>

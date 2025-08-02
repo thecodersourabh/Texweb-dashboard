@@ -18,3 +18,6 @@ To set up the project locally, follow these steps:
    git clone https://github.com/thecodersourabh/TexWeb.git
 
 npx angular-cli-ghpages -d dist
+Update package.json home page "homepage": "https://thecodersourabh.github.io/TexWeb-dashboard/",
+
+Update vite.config.ts  base: '/TexWeb-dashboard/',

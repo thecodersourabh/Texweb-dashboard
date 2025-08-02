@@ -1,33 +1,32 @@
 {
-  "name": "texweb",
+  "name": "salvatore",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://thecodersourabh.github.io/TexWeb/",
+  "homepage": "https://thecodersourabh.github.io/TexWeb-dashboard/",
   "license": "MIT",
   "scripts": {
-    "dev": "vite build && vite preview",
+    "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "cap:build": "npm run build && npx cap sync",
+    "cap:android": "npm run cap:build && npx cap open android",
+    "cap:ios": "npm run cap:build && npx cap open ios"
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.3.0",
-    "@react-three/drei": "^9.122.0",
-    "@react-three/fiber": "^8.18.0",
-    "@types/leaflet": "^1.9.19",
-    "@types/three": "^0.156.0",
-    "@vladmandic/face-api": "^1.7.15",
-    "@vladmandic/human": "^3.3.5",
-    "canvas": "^3.1.0",
+    "@capacitor/android": "^7.4.2",
+    "@capacitor/cli": "^7.4.2",
+    "@capacitor/core": "^7.4.2",
+    "@capacitor/ios": "^7.4.2",
+    "@ionic/react": "^8.7.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-leaflet": "^5.0.0",
-    "react-router-dom": "^6.22.3",
-    "three": "^0.177.0",
-    "three-stdlib": "^2.36.0"
+    "react-router-dom": "^6.22.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",

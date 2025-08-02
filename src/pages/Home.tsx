@@ -1,121 +1,212 @@
-import { BedDouble, Ruler, Scissors, Sparkles } from "lucide-react";
-import { CategoryCard } from "../components/CategoryCard";
-import { useCart } from "../context/CartContext";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { 
+  Zap, 
+  Scissors, 
+  Wrench, 
+  Car, 
+  Building, 
+  Plus,
+  TrendingUp,
+  Calendar,
+  DollarSign
+} from "lucide-react";
+import { ServiceCard } from "../components/ServiceCard";
+
+const serviceCategories = [
+  {
+    id: 1,
+    title: "Electrical Services",
+    description: "Electrical installations, repairs, and maintenance services",
+    icon: Zap,
+    category: "Technical",
+    rating: 4.8,
+    totalJobs: 156,
+    isActive: true
+  },
+  {
+    id: 2,
+    title: "Tailoring Services", 
+    description: "Custom clothing design, alterations, and garment repairs",
+    icon: Scissors,
+    category: "Fashion",
+    rating: 4.9,
+    totalJobs: 89,
+    isActive: true
+  },
+  {
+    id: 3,
+    title: "Plumbing Services",
+    description: "Pipe installations, leak repairs, and drainage solutions",
+    icon: Wrench,
+    category: "Technical",
+    rating: 4.7,
+    totalJobs: 203,
+    isActive: false
+  },
+  {
+    id: 4,
+    title: "Automotive Repair",
+    description: "Car servicing, repairs, and maintenance solutions",
+    icon: Car,
+    category: "Automotive",
+    rating: 4.6,
+    totalJobs: 127,
+    isActive: true
+  },
+  {
+    id: 5,
+    title: "Construction Services",
+    description: "Building construction, renovations, and maintenance",
+    icon: Building,
+    category: "Construction",
+    rating: 4.5,
+    totalJobs: 78,
+    isActive: false
+  }
+];
 
 export const Home = () => {
-  const { addItem } = useCart();
-  const navigate = useNavigate();
+  const [services, setServices] = useState(serviceCategories);
+
+  const toggleServiceStatus = (serviceId: number) => {
+    setServices(prev => 
+      prev.map(service => 
+        service.id === serviceId 
+          ? { ...service, isActive: !service.isActive }
+          : service
+      )
+    );
+  };
+
+  const activeServices = services.filter(service => service.isActive);
+  const totalEarnings = activeServices.reduce((sum, service) => sum + (service.totalJobs * 45), 0);
+
   return (
-    <>
-      {/* Hero Section */}
-      <div
-        className="relative h-[500px] bg-cover bg-center"
-        style={{
-          backgroundImage:
-            'url("https://images.unsplash.com/photo-1528578950694-9f79b45a3397?auto=format&fit=crop&q=80")',
-        }}
-      >
-        <div className="absolute inset-0 bg-black bg-opacity-40" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center text-white">
-            <h1 className="text-5xl font-bold mb-4">
-              Design Your Dream Fabric
-            </h1>
-            <p className="text-xl mb-8">
-              Turn your creativity into beautiful custom fabrics
-            </p>
-            <button
-              onClick={() => navigate("/design")}
-              className="bg-rose-600 text-white px-8 py-3 rounded-full hover:bg-rose-700 transition"
-            >
-              Start Designing
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* New Product Section */}
-      <div className="bg-gray-50 py-16">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6">
-              <div className="inline-block bg-rose-100 text-rose-600 px-4 py-1 rounded-full text-sm font-semibold">
-                NEW
-              </div>
-              <h2 className="text-4xl font-bold">
-                Extra-Wide Cotton Sateen Fabrics
-              </h2>
-              <p className="text-lg text-gray-600 leading-relaxed">
-                With 116" (over 9½ feet!) of printed width, these two 100%
-                cotton fabrics are perfect for large scale projects like
-                bedding, table linens and quilt backings. Now available by the
-                yard featuring your choice of any Spoonflower print.
+    <div className="min-h-screen bg-gray-50">
+      {/* Hero Dashboard Section */}
+      <div className="bg-gradient-to-br from-blue-600 to-blue-800 text-white">
+        <div className="max-w-7xl mx-auto px-4 py-12">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2">
+              <h1 className="text-4xl font-bold mb-4">
+                Welcome to Salvatore Dashboard
+              </h1>
+              <p className="text-xl text-blue-100 mb-6">
+                Manage your services and grow your business across multiple sectors
               </p>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2 text-gray-600">
-                  <Ruler className="h-5 w-5" />
-                  <span>116" Width</span>
-                </div>
-                <div className="flex items-center space-x-2 text-gray-600">
-                  <Scissors className="h-5 w-5" />
-                  <span>100% Cotton</span>
+              <div className="flex flex-wrap gap-4">
+                <button className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors">
+                  Add New Service
+                </button>
+                <button className="border border-blue-300 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+                  View Analytics
+                </button>
+              </div>
+            </div>
+            
+            {/* Quick Stats */}
+            <div className="space-y-4">
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-100 text-sm">Active Services</p>
+                    <p className="text-2xl font-bold">{activeServices.length}</p>
+                  </div>
+                  <TrendingUp className="h-8 w-8 text-blue-200" />
                 </div>
               </div>
-              <button
-                onClick={() =>
-                  addItem({
-                    id: "cotton-sateen",
-                    name: "Extra-Wide Cotton Sateen Fabric",
-                    price: 24.99,
-                    image:
-                      "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&q=80",
-                  })
-                }
-                className="bg-rose-600 text-white px-6 py-3 rounded-full hover:bg-rose-700 transition"
-              >
-                Shop Now
-              </button>
-            </div>
-            <div className="relative">
-              <img
-                src="https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&q=80"
-                alt="Extra-Wide Cotton Sateen Fabric"
-                className="rounded-lg shadow-xl"
-              />
+              
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-100 text-sm">Total Earnings</p>
+                    <p className="text-2xl font-bold">${totalEarnings.toLocaleString()}</p>
+                  </div>
+                  <DollarSign className="h-8 w-8 text-blue-200" />
+                </div>
+              </div>
+              
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-100 text-sm">This Month</p>
+                    <p className="text-2xl font-bold">23 Jobs</p>
+                  </div>
+                  <Calendar className="h-8 w-8 text-blue-200" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Featured Categories */}
-      <div className="max-w-7xl mx-auto py-16 px-4">
-        <h2 className="text-3xl font-bold mb-12 text-center">
-          Featured Collections
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <CategoryCard
-            title="Custom Bedding"
-            image="https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80"
-            icon={<BedDouble className="h-6 w-6" />}
-          />
-          <CategoryCard
-            title="Designer Prints"
-            image="https://images.unsplash.com/photo-1528458909336-e7a0adfed0a5?auto=format&fit=crop&q=80"
-            icon={<Sparkles className="h-6 w-6" />}
-          />
-          <CategoryCard
-            title="Seasonal Fabrics"
-            image="https://images.unsplash.com/photo-1544365558-35aa4afcf11f?auto=format&fit=crop&q=80"
-            icon={<Scissors className="h-6 w-6" />}
-          />
+      {/* Services Management Section */}
+      <div className="max-w-7xl mx-auto px-4 py-12">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">
+              Your Services
+            </h2>
+            <p className="text-gray-600">
+              Manage your service offerings across different sectors
+            </p>
+          </div>
+          <button className="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
+            <Plus className="h-5 w-5" />
+            <span>Add Service</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {services.map((service) => (
+            <ServiceCard
+              key={service.id}
+              title={service.title}
+              description={service.description}
+              icon={service.icon}
+              category={service.category}
+              rating={service.rating}
+              totalJobs={service.totalJobs}
+              isActive={service.isActive}
+              onToggle={() => toggleServiceStatus(service.id)}
+            />
+          ))}
         </div>
       </div>
 
-      {/* Design Challenge Banner */}
-      <div className="bg-gray py-12">
-        <div className="max-w-7xl mx-auto px-4"></div>
+      {/* Quick Actions Section */}
+      <div className="bg-white border-t border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 py-12">
+          <h3 className="text-2xl font-bold text-gray-900 mb-8 text-center">
+            Quick Actions
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-center p-6 rounded-lg border border-gray-100 hover:shadow-md transition-shadow">
+              <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Calendar className="h-8 w-8 text-green-600" />
+              </div>
+              <h4 className="font-semibold text-gray-900 mb-2">View Bookings</h4>
+              <p className="text-gray-600 text-sm">Check your upcoming appointments and manage your schedule</p>
+            </div>
+            
+            <div className="text-center p-6 rounded-lg border border-gray-100 hover:shadow-md transition-shadow">
+              <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <TrendingUp className="h-8 w-8 text-purple-600" />
+              </div>
+              <h4 className="font-semibold text-gray-900 mb-2">Analytics</h4>
+              <p className="text-gray-600 text-sm">Track your performance and earnings across all services</p>
+            </div>
+            
+            <div className="text-center p-6 rounded-lg border border-gray-100 hover:shadow-md transition-shadow">
+              <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <DollarSign className="h-8 w-8 text-orange-600" />
+              </div>
+              <h4 className="font-semibold text-gray-900 mb-2">Payments</h4>
+              <p className="text-gray-600 text-sm">Manage your earnings and payment methods</p>
+            </div>
+          </div>
+        </div>
       </div>
-    </>
+    </div>
   );
 };

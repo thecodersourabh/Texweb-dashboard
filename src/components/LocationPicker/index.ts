@@ -1,1 +1,0 @@
-export { SimpleLocationPicker } from './SimpleLocationPicker';
