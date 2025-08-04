@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Calendar, Clock, MapPin, Phone, User, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Calendar, Clock, MapPin, Phone, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 
 const bookingsData = [
   {

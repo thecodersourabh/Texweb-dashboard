@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Wrench, Heart, ShoppingCart, User, Menu, X } from "lucide-react";
-import { useCart } from "../context/CartContext";
-import { useAuth } from "../context/AuthContext";
+import { useCart } from "../hooks/useCart";
+import { useAuth } from "../hooks/useAuth";
 import { useState } from "react";
 import { ProfilePanel } from "./ProfilePanel/ProfilePanel";
 

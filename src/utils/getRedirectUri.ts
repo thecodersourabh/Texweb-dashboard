@@ -6,7 +6,7 @@ export const getRedirectUri = () => {
   }
   
   // For development, use fixed localhost URL that matches Auth0 config
-  return 'http://localhost:5174/Texweb-dashboard/';
+  return 'http://localhost:5173/Texweb-dashboard/';
 };
 
 export const getLogoutUri = () => {
@@ -17,5 +17,5 @@ export const getLogoutUri = () => {
   }
   
   // For development, use fixed localhost URL
-  return 'http://localhost:5174/Texweb-dashboard/#/';
+  return 'http://localhost:5173/Texweb-dashboard/#/';
 };

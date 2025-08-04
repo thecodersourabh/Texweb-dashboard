@@ -264,7 +264,7 @@ export const Addresses = () => {
           
           // Also check administrative levels for postal codes (sometimes stored there)
           if (data.localityInfo?.administrative) {
-            data.localityInfo.administrative.forEach((admin: any) => {
+            data.localityInfo.administrative.forEach((admin: { name?: string }) => {
               if (admin.name && /^\d{5,6}$/.test(admin.name)) {
                 pincodeFields.push(admin.name);
               }
@@ -379,16 +379,18 @@ export const Addresses = () => {
         setShowToast(true);
       }
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Geolocation error:', error);
       let errorMessage = 'Unable to retrieve your location.';
       
-      if (error.message?.includes('permission')) {
-        errorMessage = 'Location access denied. Please enable location permissions in your device settings.';
-      } else if (error.message?.includes('unavailable')) {
-        errorMessage = 'Location service is unavailable.';
-      } else if (error.message?.includes('timeout')) {
-        errorMessage = 'Location request timed out. Please try again.';
+      if (error instanceof Error) {
+        if (error.message?.includes('permission')) {
+          errorMessage = 'Location access denied. Please enable location permissions in your device settings.';
+        } else if (error.message?.includes('unavailable')) {
+          errorMessage = 'Location service is unavailable.';
+        } else if (error.message?.includes('timeout')) {
+          errorMessage = 'Location request timed out. Please try again.';
+        }
       }
       
       setToastMessage(errorMessage);
@@ -471,7 +473,7 @@ export const Addresses = () => {
 
       setShowToast(true);
       cleanupForm();
-    } catch (error) {
+    } catch {
       setToastMessage('Failed to save address. Please try again.');
       setShowToast(true);
     } finally {

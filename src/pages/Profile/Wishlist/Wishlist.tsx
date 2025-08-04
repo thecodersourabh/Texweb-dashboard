@@ -1,15 +1,23 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Trash2, ShoppingBag, X } from 'lucide-react';
-import { useWishlist } from '../../../context/WishlistContext';
-import { useCart } from '../../../context/CartContext';
+import { Heart, Trash2, ShoppingBag } from 'lucide-react';
+import { useWishlist } from '../../../hooks/useWishlist';
+import { useCart } from '../../../hooks/useCart';
+
+interface WishlistItem {
+  id: string;
+  name: string;
+  price: number;
+  image: string;
+}
 
 export const Wishlist = () => {
   const { wishlistItems, removeFromWishlist, clearWishlist } = useWishlist();
   const { addItem } = useCart();
   const navigate = useNavigate();
   const [isConfirmClearOpen, setIsConfirmClearOpen] = useState(false);
-  const handleAddToCart = (item: any) => {
+  
+  const handleAddToCart = (item: WishlistItem) => {
     addItem({
       id: item.id,
       name: item.name,

@@ -2,14 +2,6 @@ import { useState } from "react";
 import { Search, Filter, Plus, Edit, Trash2, Zap, Scissors, Wrench, Car, Building } from "lucide-react";
 import { ServiceCard } from "../components/ServiceCard";
 
-const iconMap = {
-  Zap,
-  Scissors,
-  Wrench,
-  Car,
-  Building
-};
-
 const allServices = [
   {
     id: 1,

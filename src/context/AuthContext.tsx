@@ -1,11 +1,11 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { useAuth0 } from '@auth0/auth0-react';
+import { createContext, useEffect, useState } from 'react';
+import { useAuth0, User } from '@auth0/auth0-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getLogoutUri } from '../utils/getRedirectUri';
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  user: any;
+  user: User | undefined;
   loading: boolean;
   logout: () => void;
   loginWithRedirect: () => void;
@@ -13,6 +13,8 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export { AuthContext };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
@@ -53,12 +55,4 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 };
