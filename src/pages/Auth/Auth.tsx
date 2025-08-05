@@ -1,115 +1,114 @@
+
 import { useAuth0 } from '@auth0/auth0-react';
-import { useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { Wrench, User, Shield, Zap } from 'lucide-react';
-import { QuickLoader } from '../../components/QuickLoader';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
+import * as config from '../../auth_config.json';
 
 export const Auth = () => {
   const { loginWithRedirect, logout, user, isAuthenticated, isLoading } = useAuth0();
-  const navigate = useNavigate();
-  const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // Redirect to dashboard if already authenticated
-  useEffect(() => {
-    if (isAuthenticated && !isRedirecting) {
-      setIsRedirecting(true);
-      // Small delay to show the redirect message
-      setTimeout(() => {
-        navigate('/', { replace: true });
-      }, 1000);
+  // Handle login with proper Capacitor integration
+  const handleLogin = async () => {
+    if (Capacitor.isNativePlatform()) {
+      // Use Browser plugin for mobile - Official Auth0 approach
+      const nativeRedirect = `${config.nativeScheme}://callback`;
+      const authUrl = `https://${config.domain}/authorize?` +
+        `response_type=code&` +
+        `client_id=${config.clientId}&` +
+        `redirect_uri=${encodeURIComponent(nativeRedirect)}&` +
+        `scope=openid%20profile%20email&` +
+        `state=${Math.random().toString(36).substring(2)}`;
+      await Browser.open({
+        url: authUrl,
+        windowName: '_self'
+      });
+    } else {
+      // Use regular Auth0 redirect for web
+      loginWithRedirect();
     }
-  }, [isAuthenticated, navigate, isRedirecting]);
+  };
 
-  // Show quick loader for Auth0 initialization
+  // Handle logout with proper Capacitor integration  
+  const handleLogout = async () => {
+    if (Capacitor.isNativePlatform()) {
+      // Use Browser plugin for mobile logout
+      const nativeRedirect = `${config.nativeScheme}://callback`;
+      const logoutUrl = `https://${config.domain}/v2/logout?` +
+        `client_id=${config.clientId}&` +
+        `returnTo=${encodeURIComponent(nativeRedirect)}`;
+      await Browser.open({
+        url: logoutUrl,
+        windowName: '_self'
+      });
+    } else {
+      // Use regular Auth0 logout for web
+      logout({ logoutParams: { returnTo: window.location.origin } });
+    }
+  };
+
+
   if (isLoading) {
-    return <QuickLoader message="Initializing..." />;
-  }
-
-  // Show redirect message when authenticated
-  if (isAuthenticated && isRedirecting) {
-    return <QuickLoader message="Welcome! Redirecting to dashboard..." />;
-  }
-
-  // Show authenticated user info briefly before redirect
-  if (isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-800">
-        <div className="max-w-md w-full space-y-6 p-8 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-          <div className="text-center">
-            <img
-              src={user?.picture}
-              alt={user?.name}
-              className="mx-auto h-20 w-20 rounded-full border-4 border-white/30 mb-4"
-            />
-            <h2 className="text-2xl font-bold text-white">
-              Welcome, {user?.name?.split(' ')[0]}!
-            </h2>
-            <p className="text-blue-100 text-sm">{user?.email}</p>
-            <div className="mt-4 flex items-center justify-center space-x-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-white"></div>
-              <p className="text-white font-medium">Loading dashboard...</p>
-            </div>
-          </div>
-          <button
-            onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
-            className="w-full py-2 px-4 text-sm font-medium rounded-lg text-white border border-white/30 hover:bg-white/10 transition-colors duration-200"
-          >
-            Sign Out Instead
-          </button>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-rose-600 mx-auto"></div>
         </div>
       </div>
     );
   }
 
-  // Main login interface
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-800 px-4">
-      <div className="max-w-md w-full space-y-6">
-        {/* Logo and Header */}
-        <div className="text-center">
-          <div className="flex items-center justify-center space-x-3 mb-6">
-            <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-              <Wrench className="h-8 w-8 text-white" />
-            </div>
-            <h1 className="text-4xl font-bold text-white">Salvatore</h1>
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="z-10 max-w-md w-full space-y-8 p-8 bg-white rounded-xl shadow-2xl">
+          <div className="text-center">
+            <img
+              src={user?.picture}
+              alt={user?.name}
+              className="mx-auto h-24 w-24 rounded-full"
+            />
+            <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+              Welcome, {user?.name}!
+            </h2>
+            <p className="mt-2 text-sm text-gray-600">{user?.email}</p>
           </div>
-          <p className="text-xl text-blue-100">Service Provider Dashboard</p>
-        </div>
-
-        {/* Auth Card */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
-          <div className="text-center space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-2">Get Started</h2>
-              <p className="text-blue-100">Manage your services across multiple sectors</p>
-            </div>
-
-            {/* Quick Features */}
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              {[
-                { name: 'Electrical', icon: Zap },
-                { name: 'Tailoring', icon: User },
-                { name: 'Plumbing', icon: Wrench },
-                { name: 'Security', icon: Shield }
-              ].map(({ name, icon: Icon }) => (
-                <div key={name} className="flex items-center space-x-2 text-blue-100">
-                  <Icon className="h-4 w-4" />
-                  <span>{name}</span>
-                </div>
-              ))}
-            </div>
-
+          <div className="mt-8">
             <button
-              onClick={() => loginWithRedirect()}
-              className="w-full bg-white text-blue-600 py-3 px-6 rounded-xl font-semibold text-lg hover:bg-blue-50 active:bg-blue-100 transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-lg"
+              onClick={handleLogout}
+              className="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-rose-600 hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500 transition-colors duration-200"
             >
-              Sign In / Register
+              Sign Out
             </button>
-
-            <p className="text-xs text-blue-200">
-              New to Salvatore? Registration is automatic and secure
-            </p>
           </div>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="absolute inset-0 bg-cover bg-center opacity-30"
+        style={{
+          backgroundImage:
+            'url("https://images.unsplash.com/photo-1528578950694-9f79b45a3397?auto=format&fit=crop&q=80")',
+        }}
+      />
+      <div className="z-10 max-w-md w-full space-y-8 p-8 bg-white rounded-xl shadow-2xl">
+        <div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            Welcome to TexWeb
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Please sign in to continue
+          </p>
+        </div>
+        <div className="mt-8">
+          <button
+            onClick={handleLogin}
+            className="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-rose-600 hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500 transition-colors duration-200"
+          >
+            Sign In / Sign Up with Auth0
+          </button>
         </div>
       </div>
     </div>
