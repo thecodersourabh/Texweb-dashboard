@@ -1,5 +1,11 @@
 export const getRedirectUri = () => {
+  // Check if running in Capacitor (mobile app)
+  const isCapacitor = window.location.protocol === 'capacitor:';
   const isDeployed = window.location.hostname === 'thecodersourabh.github.io';
+
+  if (isCapacitor) {
+    return 'com.salvatore.app://callback';
+  }
   
   if (isDeployed) {
     return 'https://thecodersourabh.github.io/TexWeb-dashboard/';
